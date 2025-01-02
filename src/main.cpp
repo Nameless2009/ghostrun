@@ -1,7 +1,23 @@
 #include "main.h"
-#include <iostream>
-#include <fstream>
+// #include <iostream>
+// #include <fstream>
+#include <vector>
+#include <string>
+#include <cstdio>
 using namespace std;
+
+#define RIGHT_KP 1
+#define RIGHT_KI 1
+#define RIGHT_KD 1
+
+#define LEFT_KP 1
+#define LEFT_KI 1
+#define LEFT_KD 1
+
+#define HC_KP 1
+#define HC_KI 1
+#define HC_KD 1
+
 
 //###########################//
 //         DEVICE            //
@@ -16,6 +32,110 @@ pros::Motor chassisBL(6);
 
 pros::IMU imu(7);
 
+pros::Controller con(pros::E_CONTROLLER_MASTER);
+
+
+
+//###########################//
+//         PID               //
+//###########################//
+double totalErrorRight = 0; //globalize the integral for the right side so it can carry through multiple time stamps
+double prevErrorRight; //globalize the derivative for the right side so it can carry through multiple time stamps
+double calculatePIDRight(double wantedSpeed, double currentSpeed){
+	double error = wantedSpeed - currentSpeed;
+	// calculate integral
+	totalErrorRight += error;
+
+    // calculate derivative
+    float derivative = error - prevErrorRight;
+    prevErrorRight = error;
+
+    // calculate output
+    double speed = (error * RIGHT_KP) + (totalErrorRight * RIGHT_KI) + (derivative * RIGHT_KD);
+
+	if (speed > 127){
+		speed = 127;
+	}
+	else if (speed < -127){
+		speed = -127;
+	}
+
+	return speed;
+}
+
+double totalErrorLeft = 0; //globalize the integral for the left side so it can carry through multiple time stamps
+double prevErrorLeft; //globalize the derivative for the left side so it can carry through multiple time stamps
+double calculatePIDLeft(double wantedSpeed, double currentSpeed){
+	double error = wantedSpeed - currentSpeed;
+	// calculate integral
+	totalErrorLeft += error;
+
+	// calculate derivative
+	float derivative = error - prevErrorLeft;
+	prevErrorLeft = error;
+
+	// calculate output
+	double speed = (error * LEFT_KP) + (totalErrorLeft * LEFT_KI) + (derivative * LEFT_KD);
+
+	if (speed > 127){
+		speed = 127;
+	}
+	else if (speed < -127){
+		speed = -127;
+	}
+
+	return speed;
+}
+
+double totalErrorHC = 0; //globalize the integral for the heading correction so it can carry through multiple time stamps
+double prevErrorHC; //globalize the derivative for the heading correction so it can carry through multiple time stamps
+double calculatePIDHC(double wantedHeading, double currentHeading){
+	//wrap wanted heading
+	if (wantedHeading > 180){
+		wantedHeading = wantedHeading - 360;
+	}
+
+	//wrap current heading
+	if (currentHeading > 180){
+		currentHeading = currentHeading - 360;
+	}
+
+	//turn logic
+	if ((wantedHeading < 0) && (currentHeading > 0)){
+		if ((currentHeading - wantedHeading) >= 180){
+			wantedHeading = wantedHeading + 360;
+			currentHeading = imu.get_heading();
+		}
+	}
+	else if ((wantedHeading > 0) && (currentHeading < 0)) {
+		if ((wantedHeading - currentHeading) >= 180){
+			currentHeading = imu.get_heading();
+		}
+	}
+
+	//calculate error
+	double error = wantedHeading - currentHeading;
+
+	// calculate integral
+	totalErrorHC += error;
+
+	// calculate derivative
+	float derivative = error - prevErrorHC;
+	prevErrorHC = error;
+
+	// calculate output
+	double fix = (error * HC_KP) + (totalErrorHC * HC_KI) + (derivative * HC_KD);
+
+	if (fix > 127){
+		fix = 127;
+	}
+	else if (fix < -127){
+		fix = -127;
+	}
+
+	return fix;
+}
+
 
 
 //###########################//
@@ -25,25 +145,25 @@ pros::IMU imu(7);
 //###########################//
 double prevChassisRight = 0;
 double recordChassisRight(double refreshRate=20) {
-	//get ticks per ms of right side
+	//get ticks per refresh rate of right side
 	double currentChassisRight = (chassisFR.get_position() + chassisMR.get_position() + chassisBR.get_position()) / 3;
 	double deltaChassisRight = currentChassisRight - prevChassisRight;
-	double ticksPerMSRight = deltaChassisRight/refreshRate;
+	double ticksPerRRRight = deltaChassisRight/refreshRate;
 
 	prevChassisRight = currentChassisRight;
-	return ticksPerMSRight;
+	return ticksPerRRRight;
 	pros::delay(refreshRate);
 }
 
 double prevChassisLeft = 0;
 double recordChassisLeft(double refreshRate=20) {
-	//get ticks per ms of left side
+	//get ticks per refresh rate of left side
 	double currentChassisLeft = (chassisFL.get_position() + chassisML.get_position() + chassisBL.get_position()) / 3;
 	double deltaChassisLeft = currentChassisLeft - prevChassisLeft;
-	double ticksPerMSLeft = deltaChassisLeft/refreshRate;
+	double ticksPerRRLeft = deltaChassisLeft/refreshRate;
 
 	prevChassisRight = currentChassisLeft;
-	return ticksPerMSLeft;
+	return ticksPerRRLeft;
 	pros::delay(refreshRate);
 }
 
@@ -54,21 +174,47 @@ double recordChassisLeft(double refreshRate=20) {
 //       TO FILES            //
 //###########################//
 void writeTelemetryToSD(double durationInSeconds=15, double refreshRate=20) {
-	ofstream chassisRightSpeeds("chassisRightSpeeds.txt");
-	ofstream chassisLeftSpeeds("chassisLeftSpeeds.txt");
-	ofstream IMUValues("IMUValues.txt");
+	// ofstream chassisRightSpeeds("chassisRightSpeeds.bin", ios::binary);
+	// ofstream chassisLeftSpeeds("chassisLeftSpeeds.bin", ios::binary);
+	// ofstream IMUValues("IMUValues.bin", ios::binary);
+	FILE* chassisRightSpeeds = fopen("/usd/chassisRightSpeeds.bin", "wb");
+	FILE* chassisLeftSpeeds = fopen("/usd/chassisLeftSpeeds.bin", "wb");
+	FILE* IMUValues = fopen("/usd/IMUValues.bin", "wb");
+
+	//catching failed file opening
+	if (!chassisRightSpeeds || !chassisLeftSpeeds || !IMUValues){
+		con.print(3, 0, "file open failed");
+		return;
+	}
 
 	double startTime = pros::millis();
 	while(pros::millis() - startTime < durationInSeconds*1000) {
-		chassisRightSpeeds << recordChassisRight(refreshRate) << endl;
-		chassisLeftSpeeds << recordChassisLeft(refreshRate) << endl;
-		IMUValues << imu.get_heading() << endl;
+		//record chassis speeds
+		int16_t rightSpeed = static_cast<int16_t>(recordChassisRight(refreshRate));
+		int16_t leftSpeed = static_cast<int16_t>(recordChassisLeft(refreshRate));
+		fwrite(&rightSpeed, sizeof(rightSpeed), 1, chassisRightSpeeds);
+        fwrite(&leftSpeed, sizeof(leftSpeed), 1, chassisLeftSpeeds);
+		// chassisRightSpeeds.write(reinterpret_cast<const char*>(&rightSpeed), sizeof(rightSpeed));
+		// chassisLeftSpeeds.write(reinterpret_cast<const char*>(&leftSpeed), sizeof(leftSpeed));
+
+		//record imu heading
+		uint16_t heading = static_cast<int16_t>(imu.get_heading());
+		fwrite(&heading, sizeof(heading), 1, IMUValues);
+		//IMUValues.write(reinterpret_cast<const char*>(&heading), sizeof(heading));
+		//write takes two arguments, a pointer to the location of the data (where in memory is it stored), and the size of the data to be written
+		//reinterpret_cast forces the compiler to treat the data (heading) as the specified value, which is const char* which is a constant pointer that points to a single byte of memory (what char denotes)
+		//&heading means the address in memory where the value of heading is stored
+		//so basically the code is finding the single byte of space in memory where the value of heading is and converting it to a pointer to be used in write()
+		//sizeof finds the size of the var heading and returns it in bytes, satisfying the second argument of write()
+
+		pros::delay(refreshRate);
 	}
 
-	chassisRightSpeeds.close();
-	chassisLeftSpeeds.close();
-	IMUValues.close();
+	fclose(chassisRightSpeeds);
+    fclose(chassisLeftSpeeds);
+    fclose(IMUValues);
 }
+
 
 
 //###########################//
@@ -76,35 +222,51 @@ void writeTelemetryToSD(double durationInSeconds=15, double refreshRate=20) {
 //       THE FILES           //
 //      INTO A VECTOR        //
 //###########################//
-vector<double> rightSpeeds;
-vector<double> leftSpeeds;
-vector<double> headings;
-void readTelemetryFromSD(double durationInSeconds=15, double refreshRate=20){
-	ifstream chassisRightSpeeds("chassisRightSpeeds.txt");
-	ifstream chassisLeftSpeeds("chassisLeftSpeeds.txt");
-	ifstream IMUValues("IMUValues.txt");
+std::vector<double> rightSpeeds;
+std::vector<double> leftSpeeds;
+std::vector<double> headings;
+void readTelemetryFromSD(double durationInSeconds = 15, double refreshRate = 20) {
+    // Open files on the SD card using PROS filesystem
+    FILE* chassisRightSpeeds = fopen("/usd/chassisRightSpeeds.bin", "rb");
+    FILE* chassisLeftSpeeds = fopen("/usd/chassisLeftSpeeds.bin", "rb");
+    FILE* IMUValues = fopen("/usd/IMUValues.bin", "rb");
 
-	double time = 0; //used to keep track of how many iterations are needed to get through all the data
-	string rightSpeed;
-	string leftSpeed;
-	string heading;
+    if (!chassisRightSpeeds || !chassisLeftSpeeds || !IMUValues) {
+        pros::lcd::set_text(1, "file open failed");
+        return;
+    }
 
-	while(time < (durationInSeconds*1000)) {
-		getline(chassisRightSpeeds, rightSpeed);
-		getline(chassisLeftSpeeds, leftSpeed);
-		getline(IMUValues, heading);
+    double time = 0; // Used to track time progression
+    int16_t rightSpeed;
+    int16_t leftSpeed;
+    uint16_t heading;
 
-		//save the values in vectors
-		rightSpeeds.push_back(stod(rightSpeed));
-		leftSpeeds.push_back(stod(leftSpeed));
-		headings.push_back(stod(heading));
+    while (time < (durationInSeconds * 1000)) {
+        // Read binary data from files
+        size_t rsRead = fread(&rightSpeed, sizeof(rightSpeed), 1, chassisRightSpeeds);
+        size_t lsRead = fread(&leftSpeed, sizeof(leftSpeed), 1, chassisLeftSpeeds);
+        size_t hRead = fread(&heading, sizeof(heading), 1, IMUValues);
+		//size t is a variable type that is basically size of something in bytes
 
-		time += refreshRate;
-	}
+        // Break if we reach the end of any file
+        if (rsRead < 1 || lsRead < 1 || hRead < 1) {
+            break;
+			//fread returns the number of bytes successfully read so if its less than 1 that means u either reached the end of the file or something blew up
+        }
 
-	chassisRightSpeeds.close();
-	chassisLeftSpeeds.close();
-	IMUValues.close();
+        // Convert the read values to double and store in vectors
+        rightSpeeds.push_back(static_cast<double>(rightSpeed));
+        leftSpeeds.push_back(static_cast<double>(leftSpeed));
+        headings.push_back(static_cast<double>(heading));
+		//static cast to convert the int16_t to double
+
+        time += refreshRate;
+    }
+
+    // Close files
+    fclose(chassisRightSpeeds);
+    fclose(chassisLeftSpeeds);
+    fclose(IMUValues);
 }
 
 
@@ -113,6 +275,42 @@ void readTelemetryFromSD(double durationInSeconds=15, double refreshRate=20){
 //       VECTORS AND		 //
 //       MOVING THE ROBOT	 //
 //###########################//
+double wantedRightSpeed;
+double wantedLeftSpeed;
+double wantedHeading;
+void playbackFromVector(double durationInSeconds=15, double refreshRate=20){
+	double lastLoop = pros::millis();
+	int index = 0;
+	while (true){
+		//if its been 20 miliseconds since the last loop update the wanted values
+		if (pros::millis() - lastLoop >= refreshRate){
+			//vectors are in ticks per refresh rate
+			wantedRightSpeed = rightSpeeds[index];
+			wantedLeftSpeed = leftSpeeds[index];
+			wantedHeading = headings[index];
+
+			index++;
+			lastLoop = pros::millis();
+		}
+		//run a pid to get the motor speeds to the desired ticks per RR
+		double rightSpeedPID = calculatePIDRight(wantedRightSpeed, recordChassisRight());
+		double leftSpeedPID = calculatePIDLeft(wantedLeftSpeed, recordChassisLeft());
+		
+		//heading correction using the desired imu value
+		double headingCorrection = calculatePIDHC(wantedHeading, imu.get_heading());
+
+		//run the motors
+		chassisFR.move(rightSpeedPID - headingCorrection);
+		chassisMR.move(rightSpeedPID - headingCorrection);
+		chassisBR.move(rightSpeedPID - headingCorrection);
+
+		chassisFL.move(leftSpeedPID + headingCorrection);
+		chassisML.move(leftSpeedPID + headingCorrection);
+		chassisBL.move(leftSpeedPID + headingCorrection);
+	}
+}
+
+
 
 /**
  * A callback function for LLEMU's center button.
