@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <cstdio>
+#include "unistd.h"
 using namespace std;
 
 #define RIGHT_KP 1
@@ -34,6 +35,25 @@ pros::IMU imu(7);
 
 pros::Controller con(pros::E_CONTROLLER_MASTER);
 
+
+
+//###########################//
+//     DRIVER CONTROLS       //
+//###########################//
+void driverControl(){
+	//get joystick values
+	int leftJoystick = con.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+	int rightJoystick = con.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+
+	//run the motors
+	chassisFR.move(rightJoystick);
+	chassisMR.move(rightJoystick);
+	chassisBR.move(rightJoystick);
+
+	chassisFL.move(leftJoystick);
+	chassisML.move(leftJoystick);
+	chassisBL.move(leftJoystick);
+}
 
 
 //###########################//
@@ -162,7 +182,7 @@ double recordChassisLeft(double refreshRate=20) {
 	double deltaChassisLeft = currentChassisLeft - prevChassisLeft;
 	double ticksPerRRLeft = deltaChassisLeft/refreshRate;
 
-	prevChassisRight = currentChassisLeft;
+	prevChassisLeft = currentChassisLeft; // Corrected line
 	return ticksPerRRLeft;
 	pros::delay(refreshRate);
 }
@@ -173,27 +193,35 @@ double recordChassisLeft(double refreshRate=20) {
 //		 WRITING             //
 //       TO FILES            //
 //###########################//
-void writeTelemetryToSD(double durationInSeconds=15, double refreshRate=20) {
+void writeToSD(double durationInSeconds=15, double refreshRate=20){
 	// ofstream chassisRightSpeeds("chassisRightSpeeds.bin", ios::binary);
 	// ofstream chassisLeftSpeeds("chassisLeftSpeeds.bin", ios::binary);
 	// ofstream IMUValues("IMUValues.bin", ios::binary);
 	FILE* chassisRightSpeeds = fopen("/usd/chassisRightSpeeds.bin", "wb");
 	FILE* chassisLeftSpeeds = fopen("/usd/chassisLeftSpeeds.bin", "wb");
 	FILE* IMUValues = fopen("/usd/IMUValues.bin", "wb");
+	FILE* chassisRightPos = fopen("/usd/chassisRightPos.bin", "wb");
+	FILE* chassisLeftPos = fopen("/usd/chassisLeftPos.bin", "wb");
 
 	//catching failed file opening
-	if (!chassisRightSpeeds || !chassisLeftSpeeds || !IMUValues){
-		con.print(3, 0, "file open failed");
+	if (!chassisRightSpeeds || !chassisLeftSpeeds || !IMUValues || !chassisRightPos || !chassisLeftPos){
+		con.clear();
+		con.print(2, 0, "file open failed");
 		return;
 	}
 
 	double startTime = pros::millis();
 	while(pros::millis() - startTime < durationInSeconds*1000) {
 		//record chassis speeds
+		int16_t rightPos = static_cast<int16_t>((chassisFR.get_position() + chassisMR.get_position() + chassisBR.get_position()) / 3);
+		int16_t leftPos = static_cast<int16_t>((chassisFL.get_position() + chassisML.get_position() + chassisBL.get_position()) / 3);
+		fwrite(&rightPos, sizeof(rightPos), 1, chassisRightPos);
+        fwrite(&leftPos, sizeof(leftPos), 1, chassisLeftPos);
+
 		int16_t rightSpeed = static_cast<int16_t>(recordChassisRight(refreshRate));
 		int16_t leftSpeed = static_cast<int16_t>(recordChassisLeft(refreshRate));
-		fwrite(&rightSpeed, sizeof(rightSpeed), 1, chassisRightSpeeds);
-        fwrite(&leftSpeed, sizeof(leftSpeed), 1, chassisLeftSpeeds);
+		fwrite(&rightPos, sizeof(rightSpeed), 1, chassisRightSpeeds);
+        fwrite(&leftPos, sizeof(leftSpeed), 1, chassisLeftSpeeds);
 		// chassisRightSpeeds.write(reinterpret_cast<const char*>(&rightSpeed), sizeof(rightSpeed));
 		// chassisLeftSpeeds.write(reinterpret_cast<const char*>(&leftSpeed), sizeof(leftSpeed));
 
@@ -213,6 +241,8 @@ void writeTelemetryToSD(double durationInSeconds=15, double refreshRate=20) {
 	fclose(chassisRightSpeeds);
     fclose(chassisLeftSpeeds);
     fclose(IMUValues);
+	fclose(chassisRightPos);
+	fclose(chassisLeftPos);
 }
 
 
@@ -225,13 +255,17 @@ void writeTelemetryToSD(double durationInSeconds=15, double refreshRate=20) {
 std::vector<double> rightSpeeds;
 std::vector<double> leftSpeeds;
 std::vector<double> headings;
-void readTelemetryFromSD(double durationInSeconds = 15, double refreshRate = 20) {
+std::vector<double> rightPos;
+std::vector<double> leftPos;
+void readPosFromSD(double durationInSeconds = 15, double refreshRate = 20) {
     // Open files on the SD card using PROS filesystem
     FILE* chassisRightSpeeds = fopen("/usd/chassisRightSpeeds.bin", "rb");
     FILE* chassisLeftSpeeds = fopen("/usd/chassisLeftSpeeds.bin", "rb");
     FILE* IMUValues = fopen("/usd/IMUValues.bin", "rb");
+	FILE* chassisRightPos = fopen("/usd/chassisRightPos.bin", "rb");
+	FILE* chassisLeftPos = fopen("/usd/chassisLeftPos.bin", "rb");
 
-    if (!chassisRightSpeeds || !chassisLeftSpeeds || !IMUValues) {
+    if (!chassisRightSpeeds || !chassisLeftSpeeds || !IMUValues || !chassisRightPos || !chassisLeftPos) {
         pros::lcd::set_text(1, "file open failed");
         return;
     }
@@ -240,16 +274,20 @@ void readTelemetryFromSD(double durationInSeconds = 15, double refreshRate = 20)
     int16_t rightSpeed;
     int16_t leftSpeed;
     uint16_t heading;
+	uint32_t rightPosition;
+	uint32_t leftPosition;
 
     while (time < (durationInSeconds * 1000)) {
         // Read binary data from files
         size_t rsRead = fread(&rightSpeed, sizeof(rightSpeed), 1, chassisRightSpeeds);
         size_t lsRead = fread(&leftSpeed, sizeof(leftSpeed), 1, chassisLeftSpeeds);
         size_t hRead = fread(&heading, sizeof(heading), 1, IMUValues);
+		size_t rpRead = fread(&rightPos, sizeof(rightPos), 1, chassisRightPos);
+		size_t lpRead = fread(&leftPos, sizeof(leftPos), 1, chassisLeftPos);
 		//size t is a variable type that is basically size of something in bytes
 
         // Break if we reach the end of any file
-        if (rsRead < 1 || lsRead < 1 || hRead < 1) {
+        if (rsRead < 1 || lsRead < 1 || hRead < 1 || rpRead < 1 || lpRead < 1) {
             break;
 			//fread returns the number of bytes successfully read so if its less than 1 that means u either reached the end of the file or something blew up
         }
@@ -258,6 +296,8 @@ void readTelemetryFromSD(double durationInSeconds = 15, double refreshRate = 20)
         rightSpeeds.push_back(static_cast<double>(rightSpeed));
         leftSpeeds.push_back(static_cast<double>(leftSpeed));
         headings.push_back(static_cast<double>(heading));
+		rightPos.push_back(static_cast<double>(rightPosition));
+		leftPos.push_back(static_cast<double>(leftPosition));
 		//static cast to convert the int16_t to double
 
         time += refreshRate;
@@ -267,6 +307,8 @@ void readTelemetryFromSD(double durationInSeconds = 15, double refreshRate = 20)
     fclose(chassisRightSpeeds);
     fclose(chassisLeftSpeeds);
     fclose(IMUValues);
+	fclose(chassisRightPos);
+	fclose(chassisLeftPos);
 }
 
 
@@ -278,6 +320,8 @@ void readTelemetryFromSD(double durationInSeconds = 15, double refreshRate = 20)
 double wantedRightSpeed;
 double wantedLeftSpeed;
 double wantedHeading;
+double wantedRightPosition;
+double wantedLeftPosition;
 void playbackFromVector(double durationInSeconds=15, double refreshRate=20){
 	double lastLoop = pros::millis();
 	int index = 0;
@@ -288,25 +332,41 @@ void playbackFromVector(double durationInSeconds=15, double refreshRate=20){
 			wantedRightSpeed = rightSpeeds[index];
 			wantedLeftSpeed = leftSpeeds[index];
 			wantedHeading = headings[index];
+			wantedRightPosition = rightPos[index];
+			wantedLeftPosition = leftPos[index];
 
 			index++;
 			lastLoop = pros::millis();
 		}
-		//run a pid to get the motor speeds to the desired ticks per RR
+		//run a pid to get the motor speeds to the desired ticks per RR - SPEED PID
 		double rightSpeedPID = calculatePIDRight(wantedRightSpeed, recordChassisRight());
 		double leftSpeedPID = calculatePIDLeft(wantedLeftSpeed, recordChassisLeft());
+
+		//run a pid to get to the desired position - POSITION PID
+		double rightPositionPID = calculatePIDRight(wantedRightPosition, ((chassisFR.get_position() + chassisMR.get_position() + chassisBR.get_position()) / 3));
+		double leftPositionPID = calculatePIDLeft(wantedLeftPosition, ((chassisFL.get_position() + chassisML.get_position() + chassisBL.get_position()) / 3));
 		
 		//heading correction using the desired imu value
 		double headingCorrection = calculatePIDHC(wantedHeading, imu.get_heading());
 
-		//run the motors
-		chassisFR.move(rightSpeedPID - headingCorrection);
-		chassisMR.move(rightSpeedPID - headingCorrection);
-		chassisBR.move(rightSpeedPID - headingCorrection);
 
-		chassisFL.move(leftSpeedPID + headingCorrection);
-		chassisML.move(leftSpeedPID + headingCorrection);
-		chassisBL.move(leftSpeedPID + headingCorrection);
+		//clamp the distance pid output to -30 to 30, so corrects for distance do not overrride the speed pid
+		//essentially, now the the speed pid will run and it will go 30 volts faster or slower (depending on distance pid) to correct for distance
+		double clampedRightDistancePID = std::clamp(rightPositionPID, -30.0, 30.0);
+		double clampedLeftDistancePID = std::clamp(leftPositionPID, -30.0, 30.0);
+
+		//add the distance pid output to the speed pid output
+		double rightSpeed = rightSpeedPID + clampedRightDistancePID;
+		double leftSpeed = leftSpeedPID + clampedLeftDistancePID;
+
+		//run the motors
+		chassisFR.move(rightSpeed - headingCorrection);
+		chassisMR.move(rightSpeed - headingCorrection);
+		chassisBR.move(rightSpeed - headingCorrection);
+
+		chassisFL.move(leftSpeed + headingCorrection);
+		chassisML.move(leftSpeed + headingCorrection);
+		chassisBL.move(leftSpeed + headingCorrection);
 	}
 }
 
@@ -386,20 +446,15 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	pros::Motor left_mtr(1);
-	pros::Motor right_mtr(2);
+	con.clear();
+	while (true){
+		//select something to do
+		con.print(0,0, "A->Record");
+		con.print(1,0, "B->Playback");
 
-	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);
-		int left = master.get_analog(ANALOG_LEFT_Y);
-		int right = master.get_analog(ANALOG_RIGHT_Y);
-
-		left_mtr = left;
-		right_mtr = right;
-
-		pros::delay(20);
+		if (con.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)){
+			con.rumble("."); //buzz when starting recording
+			//start writing, you're gonna need a thread for this
+		}
 	}
 }
