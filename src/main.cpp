@@ -4,24 +4,24 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <list>
+#include <vector>
 #include <cstdio>
 #include "unistd.h"
 
 using namespace std;
 using namespace global;
 
-double timestamp;                                  // Timestamps             //
-bool recorded; 					   // Recorded?              //
+double timestamp;                           // Timestamp             //
+bool recorded;	                            // Recorded?             //
 
-std::list<double> Voltage_L = { };                  // Left Side of Chassis  // 
-std::list<double> Voltage_R = { };                  // Right Side of Chassis //
-std::list<double> Voltage_LB = { };                 // Lady Brown            //
-std::list<double> Voltage_In = { };                 // Intake 	             //
-std::list<double> Voltage_C = { };                  // Clamp                 //
-std::list<double> Voltage_LB_time = { };            // Lady Brown Time       //
-std::list<double> Voltage_In_time = { };	    // Intake Time           //
-std::list<double> Voltage_C_time = { };             // Clamp Time            //
+std::vector<double> Voltage_L = { };        // Left Side of Chassis  // 
+std::vector<double> Voltage_R = { };        // Right Side of Chassis //
+std::vector<double> Voltage_LB = { };       // Lady Brown            //
+std::vector<double> Voltage_In = { };       // Intake 	             //
+std::vector<double> Voltage_C = { };        // Clamp	             //
+std::vector<double> Voltage_LB_time = { };  // Lady Brown Timestamp  //
+std::vector<double> Voltage_In_time = { };  // Intake Timestamp      //
+std::vector<double> Voltage_C_time = { };   // Clamp Timestamp 	     //
 
 void Initialization( ){
 	global::RC.move_velocity(100);
@@ -130,10 +130,50 @@ bool Volatage_Record(){
 		fclose(Voltage_C_time_file);
 		recorded=true;
 		DriversInput.print(0,4, "Message 3: Recording files closed.");
+
 		return recorded;
 		}
 	else{};
 	
+}
+
+std::vector<double> Voltage_L_read;
+std::vector<double> Voltag_R_read;
+
+void Voltage_Playback_Data_Chassis(){
+	FILE* Voltage_L_file = fopen("/usd/Voltag_L.bin", "rb");
+	FILE* Voltage_R_file = fopen("/usd/Voltage_R.bin","rb");	
+
+	if (!Voltage_L_file || !Voltage_R_file) {
+		DriversInput.clear();
+		DriversInput.print(0,1, "Error 2: Failed to locate and read files.");	
+		return;	
+	}
+
+	//Do I add while loop? Ask Ayush about his
+
+	int8_t Voltage_L;
+	int8_t Voltage_R;
+	
+	size_t rsRead = fread(&Voltage_L, sizeof(Voltage_L), 1, Voltage_L_file);
+	size_t lsRead = fread(&Voltage_R, sizeof(Voltage_R), 1, Voltage_R_file);
+	
+	if (rsRead < 1 || lsRead < 1 ) {
+		DriversInput.clear();
+		DriversInput.print(0,1, "Error 3: Less than one byte was read.");
+		return;
+	}
+
+	Voltage_L_read.push_back(static_cast<double>(Voltage_L));
+	Voltage_L_read.push_back(static_cast<double>(Voltage_R));
+
+	fclose(Voltage_L_file);
+	fclose(Voltage_R_file);
+
+}
+
+void Voltage_Playback_Data_Timestamps(){
+
 }
 //PID SYSTEM//
 int PID_S(int target,int kp,int ki,int kd) {
