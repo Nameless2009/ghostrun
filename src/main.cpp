@@ -6,24 +6,32 @@
 #include <string>
 #include <list>
 #include <cstdio>
+#include "unistd.h"
 
 using namespace std;
 using namespace global;
 
-std::list<int> Voltage_L = { };  // Left Side of Chassis  // 
-std::list<int> Voltage_R = { };  // Right Side of Chassis //
-std::list<int> Voltage_LB = { }; // Lady Brown            //
-std::list<int> Voltage_In = { }; // Intake 	              //
+double timestamp;                                  // Timestamps             //
+bool recorded; 					   // Recorded?              //
+
+std::list<double> Voltage_L = { };                  // Left Side of Chassis  // 
+std::list<double> Voltage_R = { };                  // Right Side of Chassis //
+std::list<double> Voltage_LB = { };                 // Lady Brown            //
+std::list<double> Voltage_In = { };                 // Intake 	             //
+std::list<double> Voltage_C = { };                  // Clamp                 //
+std::list<double> Voltage_LB_time = { };            // Lady Brown Time       //
+std::list<double> Voltage_In_time = { };	    // Intake Time           //
+std::list<double> Voltage_C_time = { };             // Clamp Time            //
 
 void Initialization( ){
 	global::RC.move_velocity(100);
 	global::LC.move_velocity(100);
 	global::LadyBrown.move_velocity(100);
 	global::Intake.move_velocity(100);
-	global::RC.move_voltage(100);
-	global::LC.move_voltage(100);
-	global::LadyBrown.move_voltage(100);
-	global::Intake.move_voltage(100);}
+	global::RC.move_voltage(0);
+	global::LC.move_voltage(0);
+	global::LadyBrown.move_voltage(0);
+	global::Intake.move_voltage(0);}
 
 int Chassis_Control( ) {
 	double leftstick = global::DriversInput.get_analog(E_CONTROLLER_ANALOG_LEFT_X);
@@ -39,37 +47,94 @@ int Chassis_Control( ) {
 	if (leftstick < 0 ){
 		global::LC.move_voltage(leftstick);
 		global::RC.move_voltage(leftstick * -1 );}}
-
+  
 
 void Lady_Brown_Control( ) {
 	if (global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_L1)){
+		timestamp = pros::millis();
 		global::LadyBrown.move_voltage(127);
 		Voltage_LB.push_back(127);}
+		Voltage_LB_time.push_back(timestamp);
 	if (global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_R1)){
+		timestamp = pros::millis();
 		global::LadyBrown.move_voltage(-127);
-		Voltage_In.push_back(-127);}
+		Voltage_In.push_back(-127);
+		Voltage_LB_time.push_back(timestamp);}
 	else {
 		Voltage_In.push_back(0);}}
 
-//Intake///
 void Intake_Control( ) {
 	if (global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_L2)){
+		timestamp = pros::millis();
 		global::Intake.move(127);
-		Voltage_In.push_back(127);}
+		Voltage_In.push_back(127);
+		Voltage_In_time.push_back(timestamp);}
 	if (global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_R2)){
+		timestamp = pros::millis();
 		global::Intake.move(-127);
-		Voltage_In.push_back(127);}	
-	else {
-		Voltage_In.push_back(0);}}
+		Voltage_In.push_back(127);
+		Voltage_In_time.push_back(timestamp);}}
 
 void Clamp_Control( ){
+	timestamp = pros::millis();
+	//Voltage_C.push_back(127);
+	Voltage_C_time.push_back(timestamp);
 	//REMEBER TO DO THIS BY 1/7/25
 }
 
-void Volatage_Record(){
-	//Will include in later push. I dont want everything crashing cause I messed with file printing.
-}
+bool Volatage_Record(){
+	if (global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_L2) && global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_R2) && global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_A)){
+		FILE* Voltage_L_file = fopen("/usd/Voltag_L.bin", "wb");
+		FILE* Voltage_R_file = fopen("/usd/Voltage_R.bin","wb");
+		FILE* Voltage_LB_file = fopen("/usd/Voltage_LB.bin", "wb");
+		FILE* Voltage_In_file = fopen("/usd/Voltage_In.bin", "wb");
+		FILE* Voltage_C_file = fopen("/usd/Voltage_C.bin","wb");
+		FILE* Voltage_LB_time_file = fopen("/usd/Voltage_LB_time.bin","wb");
+		FILE* Voltage_In_time_file = fopen("/usd/Voltage_In_time.bin","wb");
+		FILE* Voltage_C_time_file = fopen("/usd/Voltage_C_time.bin","wb");
 
+		if (!Voltage_L_file || !Voltage_R_file || !Voltage_LB_file || !Voltage_In_file || !Voltage_C_file || !Voltage_LB_time_file || !Voltage_In_time_file || !Voltage_C_time_file) {
+			DriversInput.clear();
+			DriversInput.print(0,1, "Error 1: Failed to open file.");
+		return;}
+
+		DriversInput.clear();
+		DriversInput.print(0,1, "Message 4: Files opened.");
+		DriversInput.print(0,2, "Message 1: Recording drive.");
+
+		int8_t Voltage_L;
+		int8_t Voltage_R;
+		int8_t Voltage_LB; 
+		int8_t Voltage_In;
+		int8_t Voltage_C;
+		int8_t Voltage_LB_time;
+		int8_t Voltage_In_time;
+		int8_t Voltage_C_time;
+
+		fwrite(&Voltage_L , sizeof(Voltage_L) , 1, Voltage_L_file );
+		fwrite(&Voltage_R , sizeof(Voltage_R) , 1, Voltage_R_file );
+		fwrite(&Voltage_LB, sizeof(Voltage_LB), 1, Voltage_LB_file);
+		fwrite(&Voltage_In, sizeof(Voltage_In), 1, Voltage_In_file);
+		fwrite(&Voltage_LB_time, sizeof(Voltage_LB_time), 1, Voltage_LB_time_file);
+		fwrite(&Voltage_In_time, sizeof(Voltage_In_time), 1, Voltage_In_time_file);
+		fwrite(&Voltage_C_time, sizeof(Voltage_C_time), 1, Voltage_C_time_file);
+		DriversInput.print(0,3, "Message 2: Drive recorded.");
+
+		fclose(Voltage_L_file);
+		fclose(Voltage_R_file);
+		fclose(Voltage_LB_file);
+		fclose(Voltage_In_file);
+		fclose(Voltage_C_file);
+		fclose(Voltage_LB_time_file);
+		fclose(Voltage_In_time_file);
+		fclose(Voltage_C_time_file);
+		recorded=true;
+		DriversInput.print(0,4, "Message 3: Recording files closed.");
+		return recorded;
+		}
+	else{};
+	
+}
 //PID SYSTEM//
 int PID_S(int target,int kp,int ki,int kd) {
 	
@@ -138,8 +203,6 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {}
-//COMMENTS MADE BY NATHAN//
-//USE ALL IMPORTED AUTON FUNCTIONS//
 
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -155,14 +218,15 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-
 	while (true) {
 		Initialization();
 		Chassis_Control();
 		Intake_Control();
 		Lady_Brown_Control();
 		Clamp_Control();
-		Volatage_Record():
+		Volatage_Record();
+		if (recorded == true){
+			break;
+		}
 	}
-
 }
