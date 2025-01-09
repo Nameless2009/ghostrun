@@ -11,17 +11,17 @@
 using namespace std;
 using namespace global;
 
-double timestamp;                           // Timestamp             //
-bool recorded;	                            // Recorded?             //
+double timestamp;                          // Timestamp //
+bool recorded;	                           // Recorded? //
 
-std::vector<double> Voltage_L = { };        // Left Side of Chassis  // 
-std::vector<double> Voltage_R = { };        // Right Side of Chassis //
-std::vector<double> Voltage_LB = { };       // Lady Brown            //
-std::vector<double> Voltage_In = { };       // Intake 	             //
-std::vector<double> Voltage_C = { };        // Clamp	             //
-std::vector<double> Voltage_LB_time = { };  // Lady Brown Timestamp  //
-std::vector<double> Voltage_In_time = { };  // Intake Timestamp      //
-std::vector<double> Voltage_C_time = { };   // Clamp Timestamp 	     //
+std::vector<double> Voltage_L = { };       // Left Side of Chassis  // 
+std::vector<double> Voltage_R = { };       // Right Side of Chassis //
+std::vector<double> Voltage_LB = { };      // Lady Brown            //
+std::vector<double> Voltage_In = { };      // Intake 	            //
+std::vector<double> Voltage_C = { };       // Clamp				    //
+std::vector<double> Voltage_LB_time = { }; // Lady Brown Timestamp 	//
+std::vector<double> Voltage_In_time = { }; // Intake Timestamp      //
+std::vector<double> Voltage_C_time = { };  // Clamp Timestamp 		//
 
 void Initialization( ){
 	global::RC.move_velocity(100);
@@ -92,16 +92,13 @@ bool Volatage_Record(){
 		FILE* Voltage_LB_time_file = fopen("/usd/Voltage_LB_time.bin","wb");
 		FILE* Voltage_In_time_file = fopen("/usd/Voltage_In_time.bin","wb");
 		FILE* Voltage_C_time_file = fopen("/usd/Voltage_C_time.bin","wb");
-
 		if (!Voltage_L_file || !Voltage_R_file || !Voltage_LB_file || !Voltage_In_file || !Voltage_C_file || !Voltage_LB_time_file || !Voltage_In_time_file || !Voltage_C_time_file) {
 			DriversInput.clear();
 			DriversInput.print(0,1, "Error 1: Failed to open file.");
 		return;}
-
 		DriversInput.clear();
 		DriversInput.print(0,1, "Message 4: Files opened.");
 		DriversInput.print(0,2, "Message 1: Recording drive.");
-
 		int8_t Voltage_L;
 		int8_t Voltage_R;
 		int8_t Voltage_LB; 
@@ -110,7 +107,6 @@ bool Volatage_Record(){
 		int8_t Voltage_LB_time;
 		int8_t Voltage_In_time;
 		int8_t Voltage_C_time;
-
 		fwrite(&Voltage_L , sizeof(Voltage_L) , 1, Voltage_L_file );
 		fwrite(&Voltage_R , sizeof(Voltage_R) , 1, Voltage_R_file );
 		fwrite(&Voltage_LB, sizeof(Voltage_LB), 1, Voltage_LB_file);
@@ -119,7 +115,6 @@ bool Volatage_Record(){
 		fwrite(&Voltage_In_time, sizeof(Voltage_In_time), 1, Voltage_In_time_file);
 		fwrite(&Voltage_C_time, sizeof(Voltage_C_time), 1, Voltage_C_time_file);
 		DriversInput.print(0,3, "Message 2: Drive recorded.");
-
 		fclose(Voltage_L_file);
 		fclose(Voltage_R_file);
 		fclose(Voltage_LB_file);
@@ -130,15 +125,10 @@ bool Volatage_Record(){
 		fclose(Voltage_C_time_file);
 		recorded=true;
 		DriversInput.print(0,4, "Message 3: Recording files closed.");
-
-		return recorded;
-		}
+		return recorded;}
 	else{};
 	
 }
-
-std::vector<double> Voltage_L_read;
-std::vector<double> Voltag_R_read;
 
 std::vector<double> Voltage_L_read;
 std::vector<double> Voltage_R_read;
@@ -149,6 +139,10 @@ std::vector<double> Voltage_LB_time_read;
 std::vector<double> Voltage_In_time_read;
 std::vector<double> Voltage_C_time_read;
 
+double current_voltage;
+double launch_time;
+double current_time;
+
 void Voltage_Playback_Data(){
 	FILE* Voltage_L_file = fopen("/usd/Voltag_L.bin", "wb");
 	FILE* Voltage_R_file = fopen("/usd/Voltage_R.bin","wb");
@@ -158,14 +152,11 @@ void Voltage_Playback_Data(){
 	FILE* Voltage_LB_time_file = fopen("/usd/Voltage_LB_time.bin","wb");
 	FILE* Voltage_In_time_file = fopen("/usd/Voltage_In_time.bin","wb");
 	FILE* Voltage_C_time_file = fopen("/usd/Voltage_C_time.bin","wb");
-
 		if (!Voltage_L_file || !Voltage_R_file || !Voltage_LB_file || !Voltage_In_file || !Voltage_C_file || !Voltage_LB_time_file || !Voltage_In_time_file || !Voltage_C_time_file) {
 			DriversInput.clear();
 			DriversInput.print(0,1, "Error 2: Failed to open files.");
 		return;}
-
 	//Do I add while loop? Ask Ayush about his
-
 	int8_t Voltage_L;
 	int8_t Voltage_R;
 	int8_t Voltage_LB; 
@@ -174,7 +165,6 @@ void Voltage_Playback_Data(){
 	int8_t Voltage_LB_time;
 	int8_t Voltage_In_time;
 	int8_t Voltage_C_time;
-	
 	size_t R = fread(&Voltage_L, sizeof(Voltage_L), 1, Voltage_L_file);
 	size_t L = fread(&Voltage_R, sizeof(Voltage_R), 1, Voltage_R_file);
 	size_t LB = fread(&Voltage_LB, sizeof(Voltage_LB), 1, Voltage_LB_file);
@@ -183,16 +173,18 @@ void Voltage_Playback_Data(){
 	size_t LB_t = fread(&Voltage_LB_time, sizeof(Voltage_LB_time), 1, Voltage_LB_time_file);
 	size_t In_t = fread(&Voltage_In_time, sizeof(Voltage_In_time), 1, Voltage_In_time_file);
 	size_t C_t = fread(&Voltage_C_time, sizeof(Voltage_C_time), 1, Voltage_C_time_file);
-
 	if (R < 1 || L < 1 || LB < 1 || In < 1 || C < 1 || LB_t < 1 || In_t < 1 || C_t < 1) {
 		DriversInput.clear();
 		DriversInput.print(0,1, "Error 3: Less than one byte was read.");
-		return;
-	}
-
+		return;}
 	Voltage_L_read.push_back(static_cast<double>(Voltage_L));
 	Voltage_L_read.push_back(static_cast<double>(Voltage_R));
-
+	Voltage_LB_read.push_back(static_cast<double>(Voltage_LB));
+	Voltage_In_read.push_back(static_cast<double>(Voltage_In));
+	Voltage_C_read.push_back(static_cast<double>(Voltage_C));
+	Voltage_LB_time_read.push_back(static_cast<double>(Voltage_LB_time));
+	Voltage_In_time_read.push_back(static_cast<double>(Voltage_In_time));
+	Voltage_C_time_read.push_back(static_cast<double>(Voltage_C_time));
 	fclose(Voltage_L_file);
 	fclose(Voltage_R_file);
 	fclose(Voltage_LB_file);
@@ -200,30 +192,58 @@ void Voltage_Playback_Data(){
 	fclose(Voltage_C_file);
 	fclose(Voltage_LB_time_file);
 	fclose(Voltage_In_time_file);
-	fclose(Voltage_C_time_file);
+	fclose(Voltage_C_time_file);}
 
-}
-
-void Chassis_Left_Playback(){
-
-}
-
-void Chassis_Right_Playback(){
-
+void Chassis_Playback(){
+	if (Voltage_L_read.empty()){}
+	else{
+		current_voltage = Voltage_L_read.front();
+		LC.move_voltage(current_voltage);
+		Voltage_L_read.erase(Voltage_L_read.begin());
+		current_voltage = Voltage_R_read.front();
+		RC.move_voltage(current_voltage);
+		Voltage_R_read.erase(Voltage_R.begin());
+	}
 }
 
 void Lady_Brown_Playback(){
-
+	if (Voltage_LB_read.empty()){}
+	else{
+		launch_time = Voltage_LB_time_read.front();
+		current_time = pros::millis();
+		if ( current_time = launch_time ){
+			current_voltage = Voltage_LB_read.front();
+			Voltage_LB_read.erase(Voltage_LB_read.begin());
+		}
+	else{};
+	}
 }
 
 void Intake_Playlist(){
-	
+	if (Voltage_In_read.empty()){}
+	else{
+		launch_time = Voltage_In_time_read.front();
+		current_time = pros::millis();
+		if ( current_time = launch_time ){
+			current_voltage = Voltage_In_read.front();
+			Voltage_In_read.erase(Voltage_In_read.begin());
+		}
+		else{};
+	}
 }
 
 void Clamp_Playback(){
-
+	if (Voltage_C_read.empty()){}
+	else{
+		launch_time = Voltage_C_time_read.front();
+		current_time = pros::millis();
+		if ( current_time = launch_time ){
+			current_voltage = Voltage_C_read.front();
+			Voltage_C_read.erase(Voltage_C_read.begin());
+		}
+		else{};
+	}
 }
-		
 //PID SYSTEM//
 int PID_S(int target,int kp,int ki,int kd) {
 	
