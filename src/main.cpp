@@ -140,25 +140,51 @@ bool Volatage_Record(){
 std::vector<double> Voltage_L_read;
 std::vector<double> Voltag_R_read;
 
-void Voltage_Playback_Data_Chassis(){
-	FILE* Voltage_L_file = fopen("/usd/Voltag_L.bin", "rb");
-	FILE* Voltage_R_file = fopen("/usd/Voltage_R.bin","rb");	
+std::vector<double> Voltage_L_read;
+std::vector<double> Voltage_R_read;
+std::vector<double> Voltage_LB_read;
+std::vector<double> Voltage_In_read;
+std::vector<double> Voltage_C_read;
+std::vector<double> Voltage_LB_time_read;
+std::vector<double> Voltage_In_time_read;
+std::vector<double> Voltage_C_time_read;
 
-	if (!Voltage_L_file || !Voltage_R_file) {
-		DriversInput.clear();
-		DriversInput.print(0,1, "Error 2: Failed to locate and read files.");	
-		return;	
-	}
+void Voltage_Playback_Data(){
+	FILE* Voltage_L_file = fopen("/usd/Voltag_L.bin", "wb");
+	FILE* Voltage_R_file = fopen("/usd/Voltage_R.bin","wb");
+	FILE* Voltage_LB_file = fopen("/usd/Voltage_LB.bin", "wb");
+	FILE* Voltage_In_file = fopen("/usd/Voltage_In.bin", "wb");
+	FILE* Voltage_C_file = fopen("/usd/Voltage_C.bin","wb");
+	FILE* Voltage_LB_time_file = fopen("/usd/Voltage_LB_time.bin","wb");
+	FILE* Voltage_In_time_file = fopen("/usd/Voltage_In_time.bin","wb");
+	FILE* Voltage_C_time_file = fopen("/usd/Voltage_C_time.bin","wb");
+
+		if (!Voltage_L_file || !Voltage_R_file || !Voltage_LB_file || !Voltage_In_file || !Voltage_C_file || !Voltage_LB_time_file || !Voltage_In_time_file || !Voltage_C_time_file) {
+			DriversInput.clear();
+			DriversInput.print(0,1, "Error 2: Failed to open files.");
+		return;}
 
 	//Do I add while loop? Ask Ayush about his
 
 	int8_t Voltage_L;
 	int8_t Voltage_R;
+	int8_t Voltage_LB; 
+	int8_t Voltage_In;
+	int8_t Voltage_C;
+	int8_t Voltage_LB_time;
+	int8_t Voltage_In_time;
+	int8_t Voltage_C_time;
 	
-	size_t rsRead = fread(&Voltage_L, sizeof(Voltage_L), 1, Voltage_L_file);
-	size_t lsRead = fread(&Voltage_R, sizeof(Voltage_R), 1, Voltage_R_file);
-	
-	if (rsRead < 1 || lsRead < 1 ) {
+	size_t R = fread(&Voltage_L, sizeof(Voltage_L), 1, Voltage_L_file);
+	size_t L = fread(&Voltage_R, sizeof(Voltage_R), 1, Voltage_R_file);
+	size_t LB = fread(&Voltage_LB, sizeof(Voltage_LB), 1, Voltage_LB_file);
+	size_t In = fread(&Voltage_In, sizeof(Voltage_In), 1, Voltage_In_file);
+	size_t C = fread(&Voltage_C, sizeof(Voltage_C), 1, Voltage_C_file);
+	size_t LB_t = fread(&Voltage_LB_time, sizeof(Voltage_LB_time), 1, Voltage_LB_time_file);
+	size_t In_t = fread(&Voltage_In_time, sizeof(Voltage_In_time), 1, Voltage_In_time_file);
+	size_t C_t = fread(&Voltage_C_time, sizeof(Voltage_C_time), 1, Voltage_C_time_file);
+
+	if (R < 1 || L < 1 || LB < 1 || In < 1 || C < 1 || LB_t < 1 || In_t < 1 || C_t < 1) {
 		DriversInput.clear();
 		DriversInput.print(0,1, "Error 3: Less than one byte was read.");
 		return;
@@ -169,12 +195,35 @@ void Voltage_Playback_Data_Chassis(){
 
 	fclose(Voltage_L_file);
 	fclose(Voltage_R_file);
+	fclose(Voltage_LB_file);
+	fclose(Voltage_In_file);
+	fclose(Voltage_C_file);
+	fclose(Voltage_LB_time_file);
+	fclose(Voltage_In_time_file);
+	fclose(Voltage_C_time_file);
 
 }
 
-void Voltage_Playback_Data_Timestamps(){
+void Chassis_Left_Playback(){
 
 }
+
+void Chassis_Right_Playback(){
+
+}
+
+void Lady_Brown_Playback(){
+
+}
+
+void Intake_Playlist(){
+	
+}
+
+void Clamp_Playback(){
+
+}
+		
 //PID SYSTEM//
 int PID_S(int target,int kp,int ki,int kd) {
 	
