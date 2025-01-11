@@ -8,8 +8,7 @@
 #include <cstdio>
 #include "unistd.h"
 
-using namespace std;
-using namespace global;
+using namespace std; using namespace global;
 
 double timestamp;                          // Timestamp //
 bool recorded;	                           // Recorded? //
@@ -23,15 +22,16 @@ std::vector<double> Voltage_LB_time = { }; // Lady Brown Timestamp 	//
 std::vector<double> Voltage_In_time = { }; // Intake Timestamp      //
 std::vector<double> Voltage_C_time = { };  // Clamp Timestamp 		//
 
-void Initialization( ){
-	global::RC.move_velocity(100);
-	global::LC.move_velocity(100);
-	global::LadyBrown.move_velocity(100);
-	global::Intake.move_velocity(100);
-	global::RC.move_voltage(0);
-	global::LC.move_voltage(0);
-	global::LadyBrown.move_voltage(0);
-	global::Intake.move_voltage(0);}
+void Program_Initialization( ){ global::RC.move_velocity(100); global::LC.move_velocity(100); global::LadyBrown.move_velocity(100); global::Intake.move_velocity(100); global::RC.move_voltage(0); global::LC.move_voltage(0); global::LadyBrown.move_voltage(0); global::Intake.move_voltage(0);}
+
+double Voltage_Adjuster(double Input_Voltage, double Output_Voltage, double Motor_Efficiency, double Motor_Heat, double M_constant ){
+	double needed_voltage = Input_Voltage * Motor_Efficiency * Motor_Heat * M_constant;//Relationshp between all things
+	if (  needed_voltage > 127) {
+		return needed_voltage = 127;}
+	if ( needed_voltage < -127) {
+		return needed_voltage = -127;}
+	else{
+		return needed_voltage;}}
 
 int Chassis_Control( ) {
 	double leftstick = global::DriversInput.get_analog(E_CONTROLLER_ANALOG_LEFT_X);
@@ -47,7 +47,8 @@ int Chassis_Control( ) {
 	if (leftstick < 0 ){
 		global::LC.move_voltage(leftstick);
 		global::RC.move_voltage(leftstick * -1 );}}
-  
+
+//Voltage_Adjuster(leftstick);
 
 void Lady_Brown_Control( ) {
 	if (global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_L1)){
@@ -80,7 +81,7 @@ void Clamp_Control( ){
 	//Voltage_C.push_back(127);
 	Voltage_C_time.push_back(timestamp);
 	//REMEBER TO DO THIS BY 1/7/25
-}
+	}
 
 bool Volatage_Record(){
 	if (global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_L2) && global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_R2) && global::DriversInput.get_digital(E_CONTROLLER_DIGITAL_A)){
@@ -99,14 +100,7 @@ bool Volatage_Record(){
 		DriversInput.clear();
 		DriversInput.print(0,1, "Message 4: Files opened.");
 		DriversInput.print(0,2, "Message 1: Recording drive.");
-		int8_t Voltage_L;
-		int8_t Voltage_R;
-		int8_t Voltage_LB; 
-		int8_t Voltage_In;
-		int8_t Voltage_C;
-		int8_t Voltage_LB_time;
-		int8_t Voltage_In_time;
-		int8_t Voltage_C_time;
+		int8_t Voltage_L; int8_t Voltage_R; int8_t Voltage_LB; int8_t Voltage_In; int8_t Voltage_C; int8_t Voltage_LB_time; int8_t Voltage_In_time; int8_t Voltage_C_time;
 		fwrite(&Voltage_L , sizeof(Voltage_L) , 1, Voltage_L_file );
 		fwrite(&Voltage_R , sizeof(Voltage_R) , 1, Voltage_R_file );
 		fwrite(&Voltage_LB, sizeof(Voltage_LB), 1, Voltage_LB_file);
@@ -123,12 +117,9 @@ bool Volatage_Record(){
 		fclose(Voltage_LB_time_file);
 		fclose(Voltage_In_time_file);
 		fclose(Voltage_C_time_file);
-		recorded=true;
 		DriversInput.print(0,4, "Message 3: Recording files closed.");
-		return recorded;}
-	else{};
-	
-}
+		return recorded=true;}
+	else{}}
 
 std::vector<double> Voltage_L_read;
 std::vector<double> Voltage_R_read;
@@ -139,9 +130,7 @@ std::vector<double> Voltage_LB_time_read;
 std::vector<double> Voltage_In_time_read;
 std::vector<double> Voltage_C_time_read;
 
-double current_voltage;
-double launch_time;
-double current_time;
+double current_voltage; double launch_time; double current_time;
 
 void Voltage_Playback_Data(){
 	FILE* Voltage_L_file = fopen("/usd/Voltag_L.bin", "wb");
@@ -152,19 +141,12 @@ void Voltage_Playback_Data(){
 	FILE* Voltage_LB_time_file = fopen("/usd/Voltage_LB_time.bin","wb");
 	FILE* Voltage_In_time_file = fopen("/usd/Voltage_In_time.bin","wb");
 	FILE* Voltage_C_time_file = fopen("/usd/Voltage_C_time.bin","wb");
-		if (!Voltage_L_file || !Voltage_R_file || !Voltage_LB_file || !Voltage_In_file || !Voltage_C_file || !Voltage_LB_time_file || !Voltage_In_time_file || !Voltage_C_time_file) {
+	if (!Voltage_L_file || !Voltage_R_file || !Voltage_LB_file || !Voltage_In_file || !Voltage_C_file || !Voltage_LB_time_file || !Voltage_In_time_file || !Voltage_C_time_file) {
 			DriversInput.clear();
 			DriversInput.print(0,1, "Error 2: Failed to open files.");
 		return;}
 	//Do I add while loop? Ask Ayush about his
-	int8_t Voltage_L;
-	int8_t Voltage_R;
-	int8_t Voltage_LB; 
-	int8_t Voltage_In;
-	int8_t Voltage_C;
-	int8_t Voltage_LB_time;
-	int8_t Voltage_In_time;
-	int8_t Voltage_C_time;
+	int8_t Voltage_L; int8_t Voltage_R; int8_t Voltage_LB; int8_t Voltage_In; int8_t Voltage_C; int8_t Voltage_LB_time; int8_t Voltage_In_time; int8_t Voltage_C_time;
 	size_t R = fread(&Voltage_L, sizeof(Voltage_L), 1, Voltage_L_file);
 	size_t L = fread(&Voltage_R, sizeof(Voltage_R), 1, Voltage_R_file);
 	size_t LB = fread(&Voltage_LB, sizeof(Voltage_LB), 1, Voltage_LB_file);
@@ -202,9 +184,7 @@ void Chassis_Playback(){
 		Voltage_L_read.erase(Voltage_L_read.begin());
 		current_voltage = Voltage_R_read.front();
 		RC.move_voltage(current_voltage);
-		Voltage_R_read.erase(Voltage_R.begin());
-	}
-}
+		Voltage_R_read.erase(Voltage_R.begin());}}
 
 void Lady_Brown_Playback(){
 	if (Voltage_LB_read.empty()){}
@@ -215,9 +195,7 @@ void Lady_Brown_Playback(){
 			current_voltage = Voltage_LB_read.front();
 			Voltage_LB_read.erase(Voltage_LB_read.begin());
 		}
-	else{};
-	}
-}
+	else{};}}
 
 void Intake_Playlist(){
 	if (Voltage_In_read.empty()){}
@@ -226,11 +204,8 @@ void Intake_Playlist(){
 		current_time = pros::millis();
 		if ( current_time = launch_time ){
 			current_voltage = Voltage_In_read.front();
-			Voltage_In_read.erase(Voltage_In_read.begin());
-		}
-		else{};
-	}
-}
+			Voltage_In_read.erase(Voltage_In_read.begin());}
+		else{}}}
 
 void Clamp_Playback(){
 	if (Voltage_C_read.empty()){}
@@ -239,11 +214,8 @@ void Clamp_Playback(){
 		current_time = pros::millis();
 		if ( current_time = launch_time ){
 			current_voltage = Voltage_C_read.front();
-			Voltage_C_read.erase(Voltage_C_read.begin());
-		}
-		else{};
-	}
-}
+			Voltage_C_read.erase(Voltage_C_read.begin());}
+		else{};}}
 //PID SYSTEM//
 int PID_S(int target,int kp,int ki,int kd) {
 	
@@ -258,16 +230,8 @@ int PID_S(int target,int kp,int ki,int kd) {
  * When this callback is fired, it will toggle line 2 of the LCD text between
  * "I was pressed!" and nothing.
  */
-void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
-}
-
+void on_center_button() {static bool pressed = false; pressed = !pressed; if (pressed) {pros::lcd::set_text(2, "I was pressed!");} else {pros::lcd::clear_line(2);}}
+ 
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -275,12 +239,7 @@ void on_center_button() {
  * All other competition modes are blocked by initialize; it is recommended
  * to keep execution time for this mode under a few seconds.
  */
-void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
-
-	pros::lcd::register_btn1_cb(on_center_button);
-}
+void initialize() {pros::lcd::initialize();pros::lcd::set_text(1, "Hello PROS User!");pros::lcd::register_btn1_cb(on_center_button);}
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or
@@ -311,7 +270,8 @@ void competition_initialize() {}
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
-void autonomous() {}
+void autonomous() {Chassis_Playback();Lady_Brown_Playback();Intake_Playlist();Clamp_Playback();if (millis() == (15*1000)){/*End this shit*/}
+}
 
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -327,13 +287,9 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
+	Program_Initialization();
 	while (true) {
-		Initialization();
-		Chassis_Control();
-		Intake_Control();
-		Lady_Brown_Control();
-		Clamp_Control();
-		Volatage_Record();
+		Chassis_Control(); Intake_Control(); Lady_Brown_Control(); Clamp_Control();Volatage_Record();
 		if (recorded == true){
 			break;
 		}
