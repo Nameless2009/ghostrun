@@ -22,6 +22,11 @@ std::vector<double> Voltage_LB_time = { }; // Lady Brown Timestamp 	//
 std::vector<double> Voltage_In_time = { }; // Intake Timestamp      //
 std::vector<double> Voltage_C_time = { };  // Clamp Timestamp 		//
 
+void l(double lv){
+	global::L1.move_voltage(-lv);global::L2.move_voltage(-lv);global::L3.move_voltage(lv);}
+void r(double rv){
+	global::R1.move_voltage(-rv);global::R2.move_voltage(-rv);global::R3.move_voltage(rv);}
+
 void Program_Initialization( ){ global::RC.move_velocity(100); global::LC.move_velocity(100); global::LadyBrown.move_velocity(100); global::Intake.move_velocity(100); global::RC.move_voltage(0); global::LC.move_voltage(0); global::LadyBrown.move_voltage(0); global::Intake.move_voltage(0);}
 
 double Voltage_Adjuster(double Input_Voltage, double Output_Voltage, double Motor_Efficiency, double Motor_Heat, double M_constant ){
@@ -37,16 +42,16 @@ int Chassis_Control( ) {
 	double leftstick = global::DriversInput.get_analog(E_CONTROLLER_ANALOG_LEFT_X);
 	double rightstick = global::DriversInput.get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
 
-	global::RC.move_voltage(rightstick);
-	global::LC.move_voltage(rightstick);
+	l(leftstick);
+	r(rightstick);
 	Voltage_R.push_back(leftstick);
 	Voltage_L.push_back(rightstick);
 	if (leftstick >= 0){
-		global::RC.move_voltage(leftstick);
-		global::LC.move_voltage(leftstick * -1 );}
+		r(leftstick);
+		l(leftstick * -1 );}
 	if (leftstick < 0 ){
-		global::LC.move_voltage(leftstick);
-		global::RC.move_voltage(leftstick * -1 );}}
+		l(leftstick);
+		r(leftstick * -1 );}}
 
 //Voltage_Adjuster(leftstick);
 
@@ -180,10 +185,10 @@ void Chassis_Playback(){
 	if (Voltage_L_read.empty()){}
 	else{
 		current_voltage = Voltage_L_read.front();
-		LC.move_voltage(current_voltage);
+		l(current_voltage);
 		Voltage_L_read.erase(Voltage_L_read.begin());
 		current_voltage = Voltage_R_read.front();
-		RC.move_voltage(current_voltage);
+		r(current_voltage);
 		Voltage_R_read.erase(Voltage_R.begin());}}
 
 void Lady_Brown_Playback(){
